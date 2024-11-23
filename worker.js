@@ -390,14 +390,6 @@ addEventListener("fetch", async event => {
   event.respondWith(handleRequest(event.request))
 })
 
-
-
-// key in protect_keylist can't read, add, del from UI and API
-const protect_keylist = [
-  "_admin_pwd_",
-  "_user_pwd_",
-]
-
 function checkProtectKey(req_key) {
   return req_key.startsWith("_")
 }
