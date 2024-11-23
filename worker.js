@@ -11,9 +11,9 @@ const config = {
   system_type: "shorturl", // shorturl, imghost, other types {pastebin, journal}
 }
 
-const user_key_list = [
-  "_admin_pwd_",
-  "_user_pwd_"
+// key in protect_keylist can't read, add, del from UI and API
+const protect_keylist = [
+  "password",
 ]
 
 let index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html"
@@ -41,11 +41,7 @@ if (config.cors) {
   }
 }
 
-async function checkProtectKey(req_key) {
-  return req_key.startsWith("_")
-}
-
-async function base64ToBlob(base64String) {
+function base64ToBlob(base64String) {
   var parts = base64String.split(';base64,');
   var contentType = parts[0].split(':')[1];
   var raw = atob(parts[1]);
@@ -99,10 +95,10 @@ async function checkURL(URL) {
 
 async function save_url(URL) {
   let random_key = await randomString()
-  let is_exist = await KVDB.get(random_key)
+  let is_exist = await LINKS.get(random_key)
   // console.log(is_exist)
   if (is_exist == null) {
-    return await KVDB.put(random_key, URL), random_key
+    return await LINKS.put(random_key, URL), random_key
   }
   else {
     save_url(URL)
@@ -110,7 +106,7 @@ async function save_url(URL) {
 }
 
 async function is_url_exist(url_sha512) {
-  let is_exist = await KVDB.get(url_sha512)
+  let is_exist = await LINKS.get(url_sha512)
   // console.log(is_exist)
   if (is_exist == null) {
     return false
@@ -122,10 +118,8 @@ async function is_url_exist(url_sha512) {
 async function handleRequest(request) {
   // console.log(request)
 
-  // 查KV中的user_key_list对应的值 Query user_key_list in KV 
-  const user_password_value_list = await Promise.all(
-    user_key_list.map(async key => await KVDB.get(key) || null)
-  );
+  // 查KV中的password对应的值 Query "password" in KV
+  const password_value = await LINKS.get("password");
 
   /************************/
   // 以下是API接口的处理 Below is operation for API
@@ -146,8 +140,7 @@ async function handleRequest(request) {
     console.log(req_password)
     */
 
-    // if (req_password != password_value) {
-    if ( user_password_value_list.includes( req_password)) {
+    if (req_password != password_value) {
       return new Response(`{"status":500,"key": "", "error":"Error: Invalid password."}`, {
         headers: response_header,
       })
@@ -163,7 +156,7 @@ async function handleRequest(request) {
       let stat, random_key
       if (config.custom_link && (req_key != "")) {
         // Refuse 'password" as Custom shortURL
-        if (checkProtectKey(req_key)) {
+        if (protect_keylist.includes(req_key)) {
           return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
             headers: response_header,
           })
@@ -176,7 +169,7 @@ async function handleRequest(request) {
           })
         } else {
           random_key = req_key
-          stat, await KVDB.put(req_key, req_url)
+          stat, await LINKS.put(req_key, req_url)
         }
       } else if (config.unique_link) {
         let url_sha512 = await sha512(req_url)
@@ -186,7 +179,7 @@ async function handleRequest(request) {
         } else {
           stat, random_key = await save_url(req_url)
           if (typeof (stat) == "undefined") {
-            await KVDB.put(url_sha512, random_key)
+            await LINKS.put(url_sha512, random_key)
             // console.log()
           }
         }
@@ -205,17 +198,17 @@ async function handleRequest(request) {
       }
     } else if (req_cmd == "del") {
       // Refuse to delete 'password' entry
-      if (checkProtectKey(req_key)) {
+      if (protect_keylist.includes(req_key)) {
         return new Response(`{"status":500, "key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
       }
 
-      await KVDB.delete(req_key)
+      await LINKS.delete(req_key)
       
       // 计数功能打开的话, 要把计数的那条KV也删掉 Remove the visit times record
       if (config.visit_count) {
-        await KVDB.delete(req_key + "-count")
+        await LINKS.delete(req_key + "-count")
       }
 
       return new Response(`{"status":200, "key": "` + req_key + `", "error": ""}`, {
@@ -223,13 +216,13 @@ async function handleRequest(request) {
       })
     } else if (req_cmd == "qry") {
       // Refuse to query 'password'
-      if (checkProtectKey(req_key)) {
+      if (protect_keylist.includes(req_key)) {
         return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
       }
 
-      let value = await KVDB.get(req_key)
+      let value = await LINKS.get(req_key)
       if (value != null) {
         let jsonObjectRetrun = JSON.parse(`{"status":200, "error":"", "key":"", "url":""}`);
         jsonObjectRetrun.key = req_key;
@@ -249,7 +242,7 @@ async function handleRequest(request) {
         })
       }
 
-      let keyList = await KVDB.list()
+      let keyList = await LINKS.list()
       if (keyList != null) {
         // 初始化返回数据结构 Init the return struct
         let jsonObjectRetrun = JSON.parse(`{"status":200, "error":"", "kvlist": []}`);
@@ -257,7 +250,7 @@ async function handleRequest(request) {
         for (var i = 0; i < keyList.keys.length; i++) {
           let item = keyList.keys[i];
           // Hide 'password' from the query all result
-          if (checkProtectKey(item.name)) {
+          if (protect_keylist.includes(item.name)) {
             continue;
           }
           // Hide '-count' from the query all result
@@ -265,7 +258,7 @@ async function handleRequest(request) {
             continue;
           }
 
-          let url = await KVDB.get(item.name);
+          let url = await LINKS.get(item.name);
           
           let newElement = { "key": item.name, "value": url };
           // 填充要返回的列表 Fill the return list
@@ -301,22 +294,19 @@ async function handleRequest(request) {
   // 如果path为空, 即直接访问本worker
   // If visit this worker directly (no path)
   if (!path) {
-    // return Response.redirect("https://zelikk.blogspot.com/search/label/KV-woker", 302)
-    // /* 
-    return new Response(html404, {
+    return Response.redirect("https://zelikk.blogspot.com/search/label/KV-woker", 302)
+    /* new Response(html404, {
       headers: response_header,
       status: 404
-    }) 
-    // */
+    }) */
   }
 
   // 如果path符合password 显示操作页面index.html
   // if path equals password, return index.html
-  // if (path == password_value) {
-  if ( user_password_value_list.includes( path)) {
+  if (path == password_value) {
     let index = await fetch(index_html)
     index = await index.text()
-    index = index.replace(/__PASSWORD__/gm, path)
+    index = index.replace(/__PASSWORD__/gm, password_value)
     // 操作页面文字修改
     // index = index.replace(/短链系统变身/gm, "")
     return new Response(index, {
@@ -326,12 +316,12 @@ async function handleRequest(request) {
 
   // 在KV中查询 短链接 对应的原链接
   // Query the value(long url) in KV by key(short url)
-  let value = await KVDB.get(path);
+  let value = await LINKS.get(path);
   // console.log(value)
 
   // 如果path是'password', 让查询结果为空, 不然直接就把password查出来了
   // Protect password. If path equals 'password', set result null
-  if (checkProtectKey(path)) {
+  if (protect_keylist.includes(path)) {
     value = ""
   }
 
@@ -347,12 +337,12 @@ async function handleRequest(request) {
   // 计数功能
   if (config.visit_count) {
     // 获取并增加访问计数
-    let count = await KVDB.get(path + "-count");
+    let count = await LINKS.get(path + "-count");
     if (count === null) {
-      await KVDB.put(path + "-count", "1"); // 初始化为1，因为这是首次访问
+      await LINKS.put(path + "-count", "1"); // 初始化为1，因为这是首次访问
     } else {
       count = parseInt(count) + 1;
-      await KVDB.put(path + "-count", count.toString());
+      await LINKS.put(path + "-count", count.toString());
     }
   }
 
@@ -360,7 +350,7 @@ async function handleRequest(request) {
   if (config.snapchat_mode) {
     // 删除KV中的记录
     // Remove record before jump to long url
-    await KVDB.delete(path)
+    await LINKS.delete(path)
   }
 
   // 带上参数部分, 拼装要跳转的最终网址
@@ -402,4 +392,3 @@ async function handleRequest(request) {
 addEventListener("fetch", async event => {
   event.respondWith(handleRequest(event.request))
 })
-
