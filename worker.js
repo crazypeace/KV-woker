@@ -13,7 +13,8 @@ const config = {
 
 // key in protect_keylist can't read, add, del from UI and API
 const protect_keylist = [
-  "password",
+  "_admin_pwd_",
+  "_user_pwd_"
 ]
 
 // If you visit with the value of the key, you can use the UI and API
