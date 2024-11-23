@@ -119,7 +119,7 @@ async function handleRequest(request) {
   // console.log(request)
 
   // 查KV中的password对应的值 Query "password" in KV
-  const password_value = await LINKS.get("password");
+  const password_value = await LINKS.get("_user_pwd_");
 
   /************************/
   // 以下是API接口的处理 Below is operation for API
