@@ -36,7 +36,11 @@ if (config.cors) {
   }
 }
 
-function base64ToBlob(base64String) {
+async function checkProtectKey(req_key) {
+  return req_key.startsWith("_")
+}
+
+async function base64ToBlob(base64String) {
   var parts = base64String.split(';base64,');
   var contentType = parts[0].split(':')[1];
   var raw = atob(parts[1]);
@@ -389,8 +393,4 @@ async function handleRequest(request) {
 addEventListener("fetch", async event => {
   event.respondWith(handleRequest(event.request))
 })
-
-function checkProtectKey(req_key) {
-  return req_key.startsWith("_")
-}
 
