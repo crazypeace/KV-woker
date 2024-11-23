@@ -11,8 +11,6 @@ const config = {
   system_type: "shorturl", // shorturl, imghost, other types {pastebin, journal}
 }
 
-env.KVDB
-
 let index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html"
 let result_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/result.html"
 
@@ -293,7 +291,7 @@ async function handleRequest(request) {
   if (!path) {
     // return Response.redirect("https://zelikk.blogspot.com/search/label/KV-woker", 302)
     // /* 
-    new Response(html404, {
+    return new Response(html404, {
       headers: response_header,
       status: 404
     }) 
