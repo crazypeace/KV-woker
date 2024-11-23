@@ -23,6 +23,11 @@ const user_key_list = [
   "_user_pwd_"
 ]
 
+// If you visit with the value of the key as path, you can query and edit protect_keylist
+const admin_key_list = [
+  "_admin_pwd_"
+]
+
 let index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html"
 let result_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/result.html"
 
@@ -125,10 +130,15 @@ async function is_url_exist(url_sha512) {
 async function handleRequest(request) {
   // console.log(request)
 
-  // 查KV中的password对应的值 Query "password" in KV
+  // 查KV中的user_key_list对应的值 Query user_key_list in KV
   // const password_value = await KVDB.get("password");
   const user_password_value_list = await Promise.all(
     user_key_list.map(async key => await KVDB.get(key) || null)
+  );
+
+  // 查KV中的admin_key_list对应的值 Query admin_key_list in KV
+  const admin_password_value_list = await Promise.all(
+    admin_key_list.map(async key => await KVDB.get(key) || null)
   );
 
   /************************/
@@ -167,7 +177,7 @@ async function handleRequest(request) {
       let stat, random_key
       if (config.custom_link && (req_key != "")) {
         // Refuse 'password" as Custom shortURL
-        if (protect_keylist.includes(req_key)) {
+        if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
           return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
             headers: response_header,
           })
@@ -209,7 +219,7 @@ async function handleRequest(request) {
       }
     } else if (req_cmd == "del") {
       // Refuse to delete 'password' entry
-      if (protect_keylist.includes(req_key)) {
+      if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
         return new Response(`{"status":500, "key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
@@ -227,7 +237,7 @@ async function handleRequest(request) {
       })
     } else if (req_cmd == "qry") {
       // Refuse to query 'password'
-      if (protect_keylist.includes(req_key)) {
+      if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
         return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
@@ -261,7 +271,7 @@ async function handleRequest(request) {
         for (var i = 0; i < keyList.keys.length; i++) {
           let item = keyList.keys[i];
           // Hide 'password' from the query all result
-          if (protect_keylist.includes(item.name)) {
+          if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(item.name)) {
             continue;
           }
           // Hide '-count' from the query all result
