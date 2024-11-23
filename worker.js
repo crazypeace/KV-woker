@@ -11,6 +11,11 @@ const config = {
   system_type: "shorturl", // shorturl, imghost, other types {pastebin, journal}
 }
 
+const user_key_list = [
+  "_admin_pwd_",
+  "_user_pwd_"
+]
+
 let index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html"
 let result_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/result.html"
 
@@ -117,8 +122,10 @@ async function is_url_exist(url_sha512) {
 async function handleRequest(request) {
   // console.log(request)
 
-  // 查KV中的password对应的值 Query "password" in KV
-  const password_value = await KVDB.get("_user_pwd_");
+  // 查KV中的user_key_list对应的值 Query user_key_list in KV 
+  const user_password_value_list = await Promise.all(
+    user_key_list.map(async key => await KVDB.get(key) || null)
+  );
 
   /************************/
   // 以下是API接口的处理 Below is operation for API
@@ -139,7 +146,8 @@ async function handleRequest(request) {
     console.log(req_password)
     */
 
-    if (req_password != password_value) {
+    // if (req_password != password_value) {
+    if ( user_password_value_list.includes( req_password)) {
       return new Response(`{"status":500,"key": "", "error":"Error: Invalid password."}`, {
         headers: response_header,
       })
@@ -304,10 +312,11 @@ async function handleRequest(request) {
 
   // 如果path符合password 显示操作页面index.html
   // if path equals password, return index.html
-  if (path == password_value) {
+  // if (path == password_value) {
+  if ( user_password_value_list.includes( path)) {
     let index = await fetch(index_html)
     index = await index.text()
-    index = index.replace(/__PASSWORD__/gm, password_value)
+    index = index.replace(/__PASSWORD__/gm, path)
     // 操作页面文字修改
     // index = index.replace(/短链系统变身/gm, "")
     return new Response(index, {
