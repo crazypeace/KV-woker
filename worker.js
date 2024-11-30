@@ -1,4 +1,4 @@
-const config = {
+let config = {
   result_page: false, // After get the value from KV, if use a page to show the result.
   theme: "", // Homepage theme, use the empty value for default theme. To use urlcool theme, please fill with "theme/urlcool" .
   cors: true, // Allow Cross-origin resource sharing for API requests.
@@ -9,6 +9,42 @@ const config = {
   visit_count: false, // Count visit times.
   load_kv: false, // Load all from Cloudflare KV
   system_type: "shorturl", // shorturl, imghost, other types {pastebin, journal}
+}
+
+// 从 KV 读取配置值
+async function buildConfig() {
+  config.result_page = await loadBoolean("_result_page_", config.result_page);
+  config.theme = await loadString("_theme_", config.theme);
+  config.cors = await loadBoolean("_cors_", config.cors);
+  config.unique_link = await loadBoolean("_unique_link_", config.unique_link);
+  config.custom_link = await loadBoolean("_custom_link_", config.custom_link);
+  config.overwrite_kv = await loadBoolean("_overwrite_kv_", config.overwrite_kv);
+  config.snapchat_mode = await loadBoolean("_snapchat_mode_", config.snapchat_mode);
+  config.visit_count = await loadBoolean("_visit_count_", config.visit_count);
+  config.load_kv = await loadBoolean("_load_kv_", config.load_kv);
+  config.system_type = await loadString("_system_type_", config.system_type);  
+}
+
+// 从 KV 中读取 Boolean
+async function loadBoolean(key, defaultValue) {
+  let result = await KVDB.get(key);
+  if (result != null) {
+    return (result.toLowerCase() === "true");
+  }
+  else {
+    return defaultValue;
+  }
+}
+
+// 从 KV 中读取 String
+async function loadString(key, defaultValue) {
+  let result = await KVDB.get(key);
+  if (result != null) {
+    return result;
+  }
+  else {
+    return defaultValue;
+  }
 }
 
 // key in protect_keylist can't read, add, del from UI and API
@@ -28,9 +64,6 @@ const admin_key_list = [
   "_admin_pwd_"
 ]
 
-let index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html"
-let result_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/result.html"
-
 const html404 = `<!DOCTYPE html>
   <html>
   <body>
@@ -38,18 +71,29 @@ const html404 = `<!DOCTYPE html>
     <p>The url you visit is not found.</p>
     <p> <a href="https://github.com/crazypeace/KV-woker/" target="_self">Fork me on GitHub</a> </p>
   </body>
-  </html>`
+  </html>`;
 
-let response_header = {
-  "Content-type": "text/html;charset=UTF-8;application/json",
-}
+let index_html;
+let result_html;
+let response_header;
 
-if (config.cors) {
-  response_header = {
-    "Content-type": "text/html;charset=UTF-8;application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST",
-    "Access-Control-Allow-Headers": "Content-Type",
+function initGlobalData() {
+  index_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/index.html";
+  result_html = "https://crazypeace.github.io/KV-woker/" + config.theme + "/result.html";
+
+  if (config.cors) {
+    response_header = {
+      "Content-type": "text/html;charset=UTF-8;application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+  }
+  else
+  {
+    response_header = {
+      "Content-type": "text/html;charset=UTF-8;application/json",
+    };
   }
 }
 
@@ -129,6 +173,12 @@ async function is_url_exist(url_sha512) {
 
 async function handleRequest(request) {
   // console.log(request)
+
+  // 从 KV 读取 配置值
+  await buildConfig();
+
+  // 初始化做全局变量
+  initGlobalData();
 
   // 查KV中的user_key_list对应的值 Query user_key_list in KV
   // const password_value = await KVDB.get("password");
