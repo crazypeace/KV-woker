@@ -54,7 +54,7 @@ const protect_keylist = [
 ]
 
 function checkProtectKey(req_key) {
-  return protect_keylist.includes(req_key);
+  return req_key.startsWith("_")
 }
 
 // If you visit with the value of the key, you can use the UI and API
