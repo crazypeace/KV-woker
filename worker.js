@@ -53,6 +53,10 @@ const protect_keylist = [
   "_user_pwd_"
 ]
 
+function checkProtectKey(req_key) {
+  return protect_keylist.includes(req_key);
+}
+
 // If you visit with the value of the key, you can use the UI and API
 const user_key_list = [
   "_admin_pwd_",
@@ -227,7 +231,7 @@ async function handleRequest(request) {
       let stat, random_key
       if (config.custom_link && (req_key != "")) {
         // Refuse 'password" as Custom shortURL
-        if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
+        if ( (! admin_password_value_list.includes(req_password)) && checkProtectKey(req_key)) {
           return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
             headers: response_header,
           })
@@ -269,7 +273,7 @@ async function handleRequest(request) {
       }
     } else if (req_cmd == "del") {
       // Refuse to delete 'password' entry
-      if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
+      if ( (! admin_password_value_list.includes(req_password)) && checkProtectKey(req_key)) {
         return new Response(`{"status":500, "key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
@@ -287,7 +291,7 @@ async function handleRequest(request) {
       })
     } else if (req_cmd == "qry") {
       // Refuse to query 'password'
-      if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(req_key)) {
+      if ( (! admin_password_value_list.includes(req_password)) && checkProtectKey(req_key)) {
         return new Response(`{"status":500,"key": "` + req_key + `", "error":"Error: Key in protect_keylist."}`, {
           headers: response_header,
         })
@@ -321,7 +325,7 @@ async function handleRequest(request) {
         for (var i = 0; i < keyList.keys.length; i++) {
           let item = keyList.keys[i];
           // Hide 'password' from the query all result
-          if ( (! admin_password_value_list.includes(req_password)) && protect_keylist.includes(item.name)) {
+          if ( (! admin_password_value_list.includes(req_password)) && checkProtectKey(item.name)) {
             continue;
           }
           // Hide '-count' from the query all result
@@ -395,7 +399,7 @@ async function handleRequest(request) {
 
   // 如果path是'password', 让查询结果为空, 不然直接就把password查出来了
   // Protect password. If path equals 'password', set result null
-  if (protect_keylist.includes(path)) {
+  if (checkProtectKey(path)) {
     value = ""
   }
 
@@ -466,3 +470,4 @@ async function handleRequest(request) {
 addEventListener("fetch", async event => {
   event.respondWith(handleRequest(event.request))
 })
+
